@@ -20,17 +20,21 @@
  *
  * =============================================================================
  *
- * This file implements the routing stage on the input ports.
+ * This file implements the Routing Structure on the input ports.
  *
  * Author(s):
- *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+ *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>, (original work)
+ *   <stevenway-s> at GitHub. 
+ *      Modifications: get rid of the 'active' checker, simpler logic design
+ *      To do: one flaw: for multiple virtual channels and out-of-order flits transfer
+ *             So far, there is no way to know a PAYLOAD-type/LAST-type flit 
+ *             belond to which Header-type flit
  *
- * Modified by: <stevenway-s> at GitHub
  */
 
 `include "lisnoc_def.vh"
 
-module lisnoc_router_input_route (/*AUTOARG*/
+module lisnoc_input_route (
    // Outputs
    fifo_ready, switch_request, switch_flit,
    // Inputs
@@ -59,38 +63,25 @@ module lisnoc_router_input_route (/*AUTOARG*/
    // General ports
    input clk;
    input rst;
-
    // The fifo interface
-   input [flit_width-1:0] fifo_flit;  // current FIFO output
+   input [flit_width-1:0]  fifo_flit;  // current FIFO output
    input                   fifo_valid; // current output valid
    output                  fifo_ready; // current output has been registered
-
    // The switch interface
    output reg [directions-1:0]  switch_request;     // direction requests
    wire [directions-1:0]        nxt_switch_request; // combinatorial signal for this variable
-   output reg [flit_width-1:0] switch_flit;        // corresponding flit
+   output reg [flit_width-1:0]  switch_flit;        // corresponding flit
    input [directions-1:0]       switch_read;        // destination acknowledge
-
-   // The aggregated read signal, because there is only one read reply
-   // Note: 'switch_read' contains message of which output ports are ready to accept this flit, whose width is [directions-1:0]
-   //       Whereas, 'read' is just a single-bit signal, checking if the output flit can be taken by any output port
-   wire   read;
-   assign read = switch_read;
    
-  
-   
-
-   // Internal state
-   reg                      active;     // there is a transfer in progress
-   wire                     nxt_active; // combinatorial input to transfer state
-
+ 
+   // Internal States 
    reg [directions-1:0]     cur_select;     // This stores the current selection
    wire [directions-1:0]    nxt_cur_select; // combinational signal
+
 
    // The lookup vector is generated for better code readability and
    // is in fact the lookup parameter in another representation
    wire [directions-1:0]    lookup_vector [0:num_dests-1];
-
    // generate this representation
    genvar                   i;
    generate
@@ -101,6 +92,7 @@ module lisnoc_router_input_route (/*AUTOARG*/
       end
    endgenerate
 
+
    // Some bit selections for better readability below
    wire [flit_type_width-1:0] flit_type;
    assign flit_type = fifo_flit[flit_width-1:flit_width-flit_type_width];
@@ -110,92 +102,44 @@ module lisnoc_router_input_route (/*AUTOARG*/
 
    wire [ph_dest_width-1:0] flit_dest;
    assign flit_dest = flit_header[flit_data_width-1:flit_data_width-ph_dest_width];
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
 
+   
    // Generating the current destination selection
-   assign nxt_cur_select = ( // If there is no transfer we are waiting for or the active is finished ..
-                             (~active || (active && read)) &&
-                             // .. and this is valid and  the first flit in a packet ..
-                             (fifo_valid && (flit_type==`FLIT_TYPE_HEADER || flit_type==`FLIT_TYPE_SINGLE))
-                             // .. take selection from the lookup vector
-                             ) ? lookup_vector[flit_dest] :
+   assign nxt_cur_select = // check if the input flit is valid and if it is the first flit in the packet
+                           (fifo_valid && (flit_type==`FLIT_TYPE_HEADER || flit_type==`FLIT_TYPE_SINGLE))?
+                           // .. take selection from the lookup vector
+                           lookup_vector[flit_dest] :
                            // take current value otherwise
-
                            cur_select;
-
+                           
+   // Bit-wise AND, checking if the requested direction in the next time cycle is available to go
+   assign fifo_ready = ( // also check if the input flit is valid
+                         fifo_valid && (nxt_cur_select & switch_read)
+                        )? 1'b1 : 1'b0;
+   
    // Generate the request for the output
-   assign nxt_switch_request =  // When the next cycle is an active route ..
-               nxt_active ?
+   assign nxt_switch_request =  // check if this routing structure is ready ..
+               fifo_ready? 
                // .. issue the current route request
                nxt_cur_select
                // .. and nothing otherwise.
                : {directions{1'b0}};
-
-   // The route is active when ..
-   assign nxt_active = // .. the FIFO has a request or ..
-               fifo_valid |
-               // .. the current request is not finished.
-               (active && ~read);
-
-   // Pop from FIFO when active and successfully routed or not active and something waiting in FIFO.
-   // assign fifo_ready = (active ? read : 1 ) & fifo_valid;
-   // assign fifo_ready = fifo_valid && (active ? read : 1);
    
-   // fifo_ready should be indenpendent to fifo_valid
-   // assign fifo_ready = (active && read)||(!active);
-   // Logically, (!active) || read  <=>  (active && read)||(!active)  <=>  (active ? read : 1)
-   assign fifo_ready = (!active) || read;   // <=> !(active && (!read))
-                                            //  if(active && (!read)), then: NOT ready
-   // TODO: The line above is a combinational loop from FIFO output to FIFO input.
-   // The line below removes this, by simply signaling whether we in principle accept
-   // new flits.
-   // assign fifo_ready = ~active | read;
-
-   // Register stuff with the clock edge
+   // Synchronos Updates
    always @(posedge clk) begin
       if (rst) begin
-         active         <= 1'b0;
          switch_request <= {directions{1'b0}};
          cur_select     <= {directions{1'b0}};
       end else begin
          cur_select     <= nxt_cur_select;
          switch_request <= nxt_switch_request;
-         active         <= nxt_active;
 
          // Additionally check whether
-         // if ((active && read) || !active)
-         if (fifo_valid && fifo_ready)
+         if (fifo_ready)
             switch_flit <= fifo_flit;
          end
    end
 
-endmodule // noc_router_input_decode
+endmodule
 
 `include "lisnoc_undef.vh"
-
-
-
-// To do:
-// Check the necessity of 'active' checker
-// If it is not necessary, use 'pass' checker, 
-//  which should be logically simplier and should not use shift register.
-
-// Remove 'active' and 'read'
-// reg pass;
-// assign pass = switch_read;
-// Bit-wise AND, checking IS the requested direction is available to go  
-// if (nxt_switch_request & switch_read)
-//  pass = 1'b0;
-// else pass = 1'b0; 
-
-
-

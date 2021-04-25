@@ -48,7 +48,7 @@ module lisnoc_router( /*AUTOARG*/
    parameter use_prio = 0;
    parameter ph_prio_width = 4;
 
-   parameter vchannels = 1;
+   parameter vchannels = 1;     // Disable virtual channels for now
 
    parameter input_ports = 5;
    parameter output_ports = 5;
@@ -92,7 +92,8 @@ module lisnoc_router( /*AUTOARG*/
    // used for readable concatenation like
    //
    // {PORT_FOR_DEST0, PORT_FOR_DEST1, ..}
-   parameter [output_ports*num_dests-1:0] LOOKUP = lookup;
+   // parameter [output_ports*num_dests-1:0] LOOKUP = lookup;
+   parameter [OUTPUT_PORTS*NUM_DESTS-1:0] LOOKUP = lookup;
 
    // Clock and reset
    input clk, rst;

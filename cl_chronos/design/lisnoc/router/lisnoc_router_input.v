@@ -25,6 +25,7 @@
  *
  * Author(s):
  *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+ *   Modified by: <stevenway-s> at GitHub
  *
  * TODO:
  *  - when FIFO is empty, the flit can go to decode directly
@@ -66,6 +67,12 @@ module lisnoc_router_input( /*AUTOARG*/
 
    // The link interface
    input [flit_width-1:0] link_flit;  // current flit
+   // choice#1: Set virtual channels for the input link_flit
+   // input [flit_width-1:0] link_flit [vchannels-1:0];
+   // choice#2: Set virtual channels 
+   // input [flit_width*vchannels-1:0] link_flit;
+   // choice#3: add decoder at input port
+   
    input [vchannels-1:0]   link_valid; // current valid for which channel
    output [vchannels-1:0]  link_ready; // notification when registered
 
@@ -101,29 +108,29 @@ module lisnoc_router_input( /*AUTOARG*/
          lisnoc_fifo #(.LENGTH(fifo_length),.flit_data_width(flit_data_width),
          .flit_type_width(flit_type_width))
            fifo (/*AUTOINST*/
-                 // Outputs
-                 .in_ready              (link_ready[v]),         // Templated
-                 .out_flit              (fifo_flit[flit_width-1:0]), // Templated
-                 .out_valid             (fifo_valid),            // Templated
-                 // Inputs
+                 // Output
+                 .out_ready             (fifo_ready),            
+                 .out_flit              (fifo_flit),             
+                 .out_valid             (fifo_valid),  
+                 // Link Side
                  .clk                   (clk),
                  .rst                   (rst),
-                 .in_flit               (link_flit),             // Templated
-                 .in_valid              (link_valid[v]),         // Templated
-                 .out_ready             (fifo_ready));           // Templated
+                 .in_flit               (link_flit),             
+                 .in_valid              (link_valid[v]),         
+                 .in_ready              (link_ready[v]));
 
-         lisnoc_router_input_route
+         lisnoc_input_route
            # (.num_dests(num_dests),.lookup(lookup),
               .flit_data_width(flit_data_width),.flit_type_width(flit_type_width),
          .ph_dest_width(ph_dest_width), .directions(ports))
-         route(// Outputs
-                .fifo_ready     (fifo_ready),
+         route(// Switch Side
+                .switch_read    (switch_read_array[v]),
                 .switch_request (switch_request_array[v]),
                 .switch_flit    (switch_flit_array[v]),
-                // Inputs
+                // FIFO Side
                 .clk            (clk),
                 .rst            (rst),
-                .switch_read    (switch_read_array[v]),
+                .fifo_ready     (fifo_ready),
                 .fifo_flit      (fifo_flit),
                 .fifo_valid     (fifo_valid));
 

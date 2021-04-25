@@ -21,6 +21,9 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Manually declared parameters
+   parameter N_CORES = 0;
+   parameter ARG_WIDTH = 64;
 
    parameter ID_RW_READ = 1;
    parameter ID_RW_WRITE = 2;

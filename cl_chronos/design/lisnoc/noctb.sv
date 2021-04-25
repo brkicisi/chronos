@@ -69,7 +69,7 @@ for(g = 0; g < N_TILES; g++) begin
 end
 endgenerate
 
-task send_msg(tile_id_t src, tile_id_t dst, logic [DATA_WIDTH-1:0] data);
+task send_msg(input tile_id_t src, input tile_id_t dst, input logic [DATA_WIDTH-1:0] data);
 	s_wvalid[src] = 1'b1;
 	s_port[src] = dst;
 	s_wdata[src] = data;

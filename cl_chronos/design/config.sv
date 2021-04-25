@@ -50,7 +50,7 @@ package chronos;
 
    parameter VERSION = 10; // increment on every change to the addr_map.
 
-   `include "app_config.vh"
+// `include "app_config.vh"
 
    // most used onfiguration options
    parameter N_TILES = 1;   // Number of tiles

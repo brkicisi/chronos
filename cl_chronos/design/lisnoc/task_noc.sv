@@ -1,9 +1,9 @@
 
-import chronos::*;
+import chronos::*;  // config.sv file contains this package
 
 module tile_noc
 #(
-   parameter NUM_SI=N_TILES,
+   parameter NUM_SI=N_TILES, // 'parameter N_TILES = 1' is defined in chronos package
    parameter NUM_MI=N_TILES,
    parameter DATA_WIDTH = 32
 )
