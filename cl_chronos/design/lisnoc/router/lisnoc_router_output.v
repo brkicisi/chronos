@@ -139,7 +139,7 @@ module lisnoc_router_output (/*AUTOARG*/
     .fifo_flit_i  (flit),
     .link_ready_i (link_ready),
     ); */
-   lisnoc_router_output_arbiter
+   lisnoc_output_arbiter
       #(.vchannels(vchannels),.flit_data_width(flit_data_width), .flit_type_width(flit_type_width))
       output_arbiter(/*AUTOINST*/
                      // Outputs

@@ -24,6 +24,9 @@
  *
  * Author(s):
  *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+ * 
+ * Modified by: <stevenway-s> at GitHub
+ *
  */
 
 `include "lisnoc_def.vh"
@@ -60,8 +63,9 @@ module lisnoc_fifo(/*AUTOARG*/
    reg [flit_width-1:0] fifo_data [0:LENGTH-1]; //actual fifo
    reg [flit_width-1:0] nxt_fifo_data [0:LENGTH-1];
 
-   reg [LENGTH:0]         fifo_write_ptr;
-
+   reg [LENGTH:0]         fifo_write_ptr;   // [MSB:LSB] => [Tail:Head]
+                                            // ptr[0]: Head of FIFO; ptr[LENGTH-1]: Tail of FIFO
+                                            // 'ptr[LENGTH] == 1' => FIFO is FULL
    wire                   pop;
    wire                   push;
 
@@ -75,9 +79,9 @@ module lisnoc_fifo(/*AUTOARG*/
 
    always @(posedge clk) begin
       if (rst) begin
-         fifo_write_ptr <= {{LENGTH{1'b0}},1'b1};
-      end else if (push & !pop) begin
-         fifo_write_ptr <= fifo_write_ptr << 1;
+         fifo_write_ptr <= {{LENGTH{1'b0}},1'b1};   // the pointer is at the head of FIFO
+      end else if (push & !pop) begin               // pointer: MSB <-- LSB
+         fifo_write_ptr <= fifo_write_ptr << 1;     //          Tail <-- Head
       end else if (!push & pop) begin
          fifo_write_ptr <= fifo_write_ptr >> 1;
       end
@@ -86,18 +90,20 @@ module lisnoc_fifo(/*AUTOARG*/
    always @(*) begin : shift_register_comb
       integer i;
       for (i=0;i<LENGTH;i=i+1) begin
-         if (pop) begin
-            if (push & fifo_write_ptr[i+1]) begin
-               nxt_fifo_data[i] = in_flit;
-            end else if (i<LENGTH-1) begin
-               nxt_fifo_data[i] = fifo_data[i+1];
-            end else begin
-               nxt_fifo_data[i] = fifo_data[i];
+         if (pop) begin                         // if pop
+            if (push & fifo_write_ptr[i+1]) begin   // 'fifo_write_ptr[i+1] == 1' means the ptr is at position [i+1]
+               nxt_fifo_data[i] = in_flit;              // and the item at [i] is the tail item in the fifo
+            end else if (i<LENGTH-1) begin          // NOT((push)&&(fifo_write_ptr[i+1])) AND (i<LENGTH-1)
+               nxt_fifo_data[i] = fifo_data[i+1];       // 'fifo_write_ptr[i+1] == 1', where 'i == LENGTH-1' : the FIFO is FULL
+                                                        // 'fifo_write_ptr[i+1] != 1' : have not reach the tail yet
+            end else begin                          // NOT((push)&&(fifo_write_ptr[i+1])) AND (i=LENGTH-1)
+               nxt_fifo_data[i] = fifo_data[i];         // the next data is itself
             end
-         end else if (push & fifo_write_ptr[i]) begin
-            nxt_fifo_data[i] = in_flit;
-         end else begin
-            nxt_fifo_data[i] = fifo_data[i];
+                                                // NOT pop
+         end else if (push & fifo_write_ptr[i]) begin   // (NOT pop)&&(push) => ptr<<1
+            nxt_fifo_data[i] = in_flit;                 // push the new value to the tail 
+         end else begin                             // Otherwise
+            nxt_fifo_data[i] = fifo_data[i];            // No changes in FIFO
          end
       end
    end

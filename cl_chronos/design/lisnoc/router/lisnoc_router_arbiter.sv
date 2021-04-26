@@ -26,6 +26,12 @@
  * Author(s):
  *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
  *   Andreas Lankes <andreas.lankes@tum.de>
+ *
+ *   Modified by : <stevenway-s> at GitHub. 
+ *                  To do: 1. this arbiter only select one segment of the concatenated input flit,
+ *                            how to deal with the other segments that are discarded.
+ *                         2. Figure out how the 'lisnoc_arb_rr' works in round robin mechanism
+ *                         3. The logic design could be simplified 
  */
 
 `include "lisnoc_def.vh"
@@ -78,13 +84,14 @@ module lisnoc_router_arbiter (/*AUTOARG*/
    endgenerate
 
 
-   wire [1:0] flit_type;
-   assign flit_type = flit_i_array[portnum][flit_width-1:flit_width-2];
+   wire [flit_type_width-1:0] flit_type;
+   assign flit_type = flit_i_array[portnum][flit_width-1:flit_width-flit_type_width];
 
    assign flit_o = flit_i_array[portnum];
 
    wire [ports-1:0] req_masked;
-   assign req_masked = {ports{~activeroute & ready_i}} & request_i;
+   assign req_masked = {ports{~activeroute & ready_i}} & request_i; // if(!activeroute && ready_i), then: req_masked = request_i      
+                                                                    //  else, then: req_masked = {ports{1'b0}}
 
    /* lisnoc_arb_rr AUTO_TEMPLATE(
     .req  (req_masked),
