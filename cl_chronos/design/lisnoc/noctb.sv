@@ -3,7 +3,7 @@ import chronos::*;
 
 module noctb();
 
-localparam N_TILES = 16;
+localparam N_TILES_NOC = 16;
 localparam DATA_WIDTH = 32;
 
 genvar g;
@@ -32,32 +32,32 @@ always_ff @(posedge clk) begin
 		cycle <= cycle + 1;
 end
 
-logic [N_TILES-1:0] s_wvalid;
-logic [N_TILES-1:0] s_wready;
-logic [N_TILES-1:0] [DATA_WIDTH-1:0] s_wdata;
-tile_id_t [N_TILES-1:0] s_port;
+logic [N_TILES_NOC-1:0] s_wvalid;
+logic [N_TILES_NOC-1:0] s_wready;
+logic [N_TILES_NOC-1:0] [DATA_WIDTH-1:0] s_wdata;
+tile_id_t [N_TILES_NOC-1:0] s_port;
 
-logic [N_TILES-1:0] m_wvalid;
-logic [N_TILES-1:0] m_wready;
-logic [N_TILES-1:0] [DATA_WIDTH-1:0] m_wdata;
+logic [N_TILES_NOC-1:0] m_wvalid;
+logic [N_TILES_NOC-1:0] m_wready;
+logic [N_TILES_NOC-1:0] [DATA_WIDTH-1:0] m_wdata;
 
 tile_noc # (
-   .NUM_SI(N_TILES),
-   .NUM_MI(N_TILES),
+   .NUM_SI(N_TILES_NOC),
+   .NUM_MI(N_TILES_NOC),
    .DATA_WIDTH(DATA_WIDTH)
 ) noc (.*);
 
 
 task reset_ports();
-	for(int i = 0; i < N_TILES; i++) begin
+	for(int i = 0; i < N_TILES_NOC; i++) begin
 		s_wvalid[i] = '0;
 		m_wready[i] = '1;
 	end
 endtask
 
-logic [N_TILES-1:0] s_sent;
+logic [N_TILES_NOC-1:0] s_sent;
 generate;
-for(g = 0; g < N_TILES; g++) begin
+for(g = 0; g < N_TILES_NOC; g++) begin
 	always_ff @(posedge clk) begin
 		s_sent[g] <= s_wvalid[g] && s_wready[g];
 	end
@@ -87,7 +87,7 @@ initial begin
 	@(posedge clk);
 	@(posedge clk);
 
-	data = -1;
+	data = 32'hABCDABCD;
 	send_msg(0, 1, data);
 
 	for(i = 0; i < 100; i++)
@@ -104,7 +104,7 @@ typedef struct packed {
 	logic [DATA_WIDTH-1:0] data;
 } message_t;
 
-message_t [N_TILES-1:0] sending_msg;
+message_t [N_TILES_NOC-1:0] sending_msg;
 
 task send_msg(tile_id_t src, tile_id_t dst, logic [DATA_WIDTH-1:0] data);
 	sending_msg[src].valid = 1'b1;
@@ -113,14 +113,14 @@ task send_msg(tile_id_t src, tile_id_t dst, logic [DATA_WIDTH-1:0] data);
 endtask
 
 task init_send_msg();
-	for(i = 0; i < N_TILES; i++) begin
+	for(i = 0; i < N_TILES_NOC; i++) begin
 		sending_msg[i].valid = 1'b0;
 		sending_msg[i].src = i;
 	end
 endtask
 
 generate;
-for(g = 0; g < N_TILES; g++) begin
+for(g = 0; g < N_TILES_NOC; g++) begin
 	always_ff @(posedge clk) begin
 		if(!rstn) begin
 			s_wvalid[g] <= 1'b0;

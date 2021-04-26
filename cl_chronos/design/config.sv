@@ -53,7 +53,7 @@ package chronos;
    `include "app_config.vh"
 
    // most used onfiguration options
-   parameter N_TILES = 1;   // Number of tiles
+   parameter N_TILES = 16;   // Number of tiles
    parameter N_THREADS = 32; 
    parameter LOG_CQ_SLICE_SIZE = 7; // log of Commit Queue size per tile
    parameter LOG_TQ_SIZE = 12;  // Task Queue: Task Array size

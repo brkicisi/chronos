@@ -95,4 +95,10 @@ cl_chronos/design/gen_core_spec.vh
 cl_chronos/design/gen_core_spec_tile.vh
 cl_chronos/design/app_config.vh
 aws-fpga/
+*.bak
 
+
+# Modelsim files
+**/work/*
+**/vsim.wlf
+**/wave.do
