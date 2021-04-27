@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 /* Copyright (c) 2015 by the author(s)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,12 +26,36 @@
  * (c) 2011-2015 by the author(s)
  *
  * Author(s):
- *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+ *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>,
+ *   <stevenway-s> at GitHub.
+ *
+ * Modified by <stevenway-s> at GitHub.
+ *    To do : 1. Solve congestion condition.
+ *               When multiple input flits are requesting the same output port,
+ *               a congestion cnodition occurs. In this case, only one flit is
+ *               selected (priority: input port [0] > [1] > [2] > [3] > [4]), and
+ *               all the other flits are abandoned. 
+ *               --> We will have data miss.
+ *            2. Make virtual channels work
+ *               One solution for the congestion conditions is applying virtual
+ *               channels. However, virtual channels are not available (vchannels must be '1')
+ *               in the current version. Extra work will be done in the future.
+ *
  */
 
 `include "lisnoc_def.vh"
 
 module lisnoc_router( /*AUTOARG*/
+
+/*
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// used for debug
+debug_all_flits, debug_sout_request, debug_sout_read, debug_sin_read, debug_oflit_array,
+debug_op_fifo_ready, debug_op_oparb_ready,
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  
+*/
+    
+    
    // Outputs
    out_flit, out_valid, in_ready,
    // Inputs
@@ -135,6 +160,7 @@ module lisnoc_router( /*AUTOARG*/
       end
    endgenerate
 
+
    // Those are the switching wires
    wire [FLIT_WIDTH*VCHANNELS-1:0]   switch_in_flit[0:INPUT_PORTS-1];
    wire [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_request[0:INPUT_PORTS-1];
@@ -146,6 +172,54 @@ module lisnoc_router( /*AUTOARG*/
 
    // Switch
    wire [FLIT_WIDTH*INPUT_PORTS*VCHANNELS-1:0] all_flits;
+
+/*
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+//output [FLIT_WIDTH*VCHANNELS-1:0]   switch_in_flit[0:INPUT_PORTS-1];
+//output [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_request[0:INPUT_PORTS-1];
+//output [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_read[0:INPUT_PORTS-1];
+
+//output [FLIT_WIDTH*VCHANNELS*INPUT_PORTS-1:0] switch_out_flit[0:OUTPUT_PORTS-1];
+//output [INPUT_PORTS*VCHANNELS-1:0]            switch_out_request[0:OUTPUT_PORTS-1];
+//output [INPUT_PORTS*VCHANNELS-1:0]            switch_out_read[0:OUTPUT_PORTS-1];
+
+output [FLIT_WIDTH*INPUT_PORTS*VCHANNELS-1:0] debug_all_flits;
+assign debug_all_flits = all_flits;
+
+output [INPUT_PORTS*VCHANNELS-1:0] debug_sout_request;
+assign debug_sout_request = switch_out_request[4];
+
+output [INPUT_PORTS*VCHANNELS-1:0] debug_sout_read;
+assign debug_sout_read = switch_out_read[4];
+
+output [INPUT_PORTS*VCHANNELS-1:0] debug_sin_read;
+assign debug_sin_read = switch_in_read[1];
+
+output [FLIT_WIDTH-1:0] debug_oflit_array;
+assign debug_oflit_array = out_flit_array[4];
+
+// Inside the output ports
+// Switch-Arbiter (o_ready) <-- (i_ready) Output-FIFO
+output [OUTPUT_PORTS-1:0] debug_op_fifo_ready;
+wire debug_op_fifo_ready_array [0:OUTPUT_PORTS-1];
+generate
+      for (p = 0; p < OUTPUT_PORTS; p = p + 1) begin : assign_debug_op_fifo_ready
+         assign debug_op_fifo_ready[p] = debug_op_fifo_ready_array[p];
+      end
+endgenerate
+// Output-FIFO (o_ready) <-- (i_ready) Output-Arbiter
+output [OUTPUT_PORTS*VCHANNELS-1:0] debug_op_oparb_ready;
+wire [VCHANNELS-1:0] debug_op_oparb_ready_array [0:OUTPUT_PORTS-1];
+generate
+      for (p = 0; p < OUTPUT_PORTS; p = p + 1) begin : assig_debug_op_oparb_ready
+         assign debug_op_oparb_ready[(p+1)*VCHANNELS-1:(p)*VCHANNELS] = debug_op_oparb_ready_array[p];
+      end
+endgenerate
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*/
 
    generate
       for (p = 0; p < INPUT_PORTS; p = p + 1) begin : compose_all_flits
@@ -223,6 +297,15 @@ module lisnoc_router( /*AUTOARG*/
                   .link_flit            (out_flit_array[p]),     // Templated
                   .link_valid           (out_valid_array[p]),    // Templated
                   .switch_read          (switch_out_read[p]),    // Templated
+ /*                 
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+// Switch-Arbiter (o_ready) <-- (i_ready) Output-FIFO
+.debug_op_fifo_ready(debug_op_fifo_ready_array[p]),
+// Output-FIFO (o_ready) <-- (i_ready) Output-Arbiter
+.debug_op_oparb_ready(debug_op_oparb_ready_array[p]),
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *      
+*/                  
                   // Inputs
                   .clk                  (clk),
                   .rst                  (rst),

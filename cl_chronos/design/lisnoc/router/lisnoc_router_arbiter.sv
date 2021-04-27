@@ -1,3 +1,4 @@
+//`timescale 1ns / 1ps
 /* Copyright (c) 2015 by the author(s)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,11 +28,8 @@
  *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>
  *   Andreas Lankes <andreas.lankes@tum.de>
  *
- *   Modified by : <stevenway-s> at GitHub. 
- *                  To do: 1. this arbiter only select one segment of the concatenated input flit,
- *                            how to deal with the other segments that are discarded.
- *                         2. Figure out how the 'lisnoc_arb_rr' works in round robin mechanism
- *                         3. The logic design could be simplified 
+ *   Modified by <stevenway-s> at GitHub.              
+ *
  */
 
 `include "lisnoc_def.vh"
@@ -123,11 +121,15 @@ module lisnoc_router_arbiter (/*AUTOARG*/
    always @(*) begin
       nxt_activeroute = activeroute;
       read_o = {ports{1'b0}};
-
+      // valid_o = 1'b0;
+      
       if (activeroute) begin
          if (request_i[activeportnum] && ready_i) begin
             read_o[activeportnum] = 1'b1;
-            valid_o = 1'b1;
+
+            //if (flit_o != {flit_width{1'bX}})   // avoid the case of 'XXXXXXX'
+                valid_o = 1'b1;
+                
             if (flit_type == `FLIT_TYPE_LAST)
                nxt_activeroute = 1'b0;
          end else begin
@@ -137,7 +139,10 @@ module lisnoc_router_arbiter (/*AUTOARG*/
       end else begin
          valid_o = 1'b0;
          if (|request_i & ready_i) begin
-            valid_o = 1'b1;
+            
+            //if (flit_o != {flit_width{1'bX}})   // avoid the case of 'XXXXXXX'
+                valid_o = 1'b1;
+                
             nxt_activeroute = (flit_type != `FLIT_TYPE_SINGLE);
             read_o[portnum] = 1'b1;
          end
