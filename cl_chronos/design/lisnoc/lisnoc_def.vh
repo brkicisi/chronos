@@ -37,12 +37,12 @@
 `define FLIT_TYPE_SINGLE  2'b11
 
 // Convenience definitions for mesh
-`define SELECT_NONE  5'b00000
-`define SELECT_NORTH 5'b00001
-`define SELECT_EAST  5'b00010
-`define SELECT_SOUTH 5'b00100
-`define SELECT_WEST  5'b01000
-`define SELECT_LOCAL 5'b10000
+`define SELECT_NONE  5'b00000   // NULL
+`define SELECT_NORTH 5'b00001   // Input/Output Port [0], the 0-bit position is ON
+`define SELECT_EAST  5'b00010   // Input/Output Port [1], the 1-bit ...
+`define SELECT_SOUTH 5'b00100   // Input/Output Port [2]
+`define SELECT_WEST  5'b01000   // Input/Output Port [3]
+`define SELECT_LOCAL 5'b10000   // Input/Output Port [4]
 
 `define NORTH 0
 `define EAST  1

@@ -1,4 +1,5 @@
-/* Copyright (c) 2015 by the author(s)
+`timescale 1ns / 1ps
+/* Copyright (c) 2021 by the author(s)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +24,23 @@
  * This file implements the Routing Structure on the input ports.
  *
  * Author(s):
- *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>, (original work)
- *   <stevenway-s> at GitHub. 
- *      Modifications: get rid of the 'active' checker, simpler logic design
- *      To do: one flaw: for multiple virtual channels and out-of-order flits transfer
- *             So far, there is no way to know a PAYLOAD-type/LAST-type flit 
- *             belond to which Header-type flit
+ *   <stevenway-s> at GitHub,
+ *   Stefan Wallentowitz <stefan.wallentowitz@tum.de> (original work).
+ *   
+ * Modified by <stevenway-s> at GitHub. 
+ *   Modifications: get rid of the 'active' checker, simpler logic design
+ *   To do: one flaw: for multiple virtual channels and out-of-order flits transfer
+ *          So far, there is no way to know a PAYLOAD-type/LAST-type flit 
+ *          belond to which Header-type flit
+ *   Note: 0. Whenever there is an input flit ('i_valid' is ON), 
+ *            the structure should check the Look-Up Table and send request via 'o_valid',
+ *            regardless of if the corresponding ouput port is ready.
+ *         1. After the request is sent, the structure is wainting for the ready respond 
+ *            from thr 'o_ready'.
+ *         2. After the requested output port is ready, the structure sends notification
+ *            back to the input FIFO.
+ *         3. Whenever the input FIFO gets the ready notification from the routing structure,
+ *            if its 'o_valid' is ON, then the fifo pops the first flit in it.
  *
  */
 
@@ -119,7 +131,7 @@ module lisnoc_input_route (
    
    // Generate the request for the output
    assign nxt_switch_request =  // check if this routing structure is ready ..
-               fifo_ready? 
+               fifo_valid? 
                // .. issue the current route request
                nxt_cur_select
                // .. and nothing otherwise.

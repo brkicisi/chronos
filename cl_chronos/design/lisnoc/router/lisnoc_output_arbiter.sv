@@ -1,4 +1,5 @@
-/* Copyright (c) 2015 by the author(s)
+`timescale 1ns / 1ps
+/* Copyright (c) 2021 by the author(s)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,10 +24,12 @@
  * This file implements the Arbiter on the output ports.
  *
  * Author(s):
- *   Stefan Wallentowitz <stefan.wallentowitz@tum.de>, (original work)
- *   <stevenway-s> at GitHub. 
- *      Modifications: disable 2 registers: 'sel_channel' and 'channel_selected'
- *      To do: 
+ *   <stevenway-s> at GitHub,
+ *   Stefan Wallentowitz <stefan.wallentowitz@tum.de> (original work).
+ *   
+ * Modified by <stevenway-s> at GitHub. 
+ *   Modifications: disable 2 registers: 'sel_channel' and 'channel_selected'
+ *   To do: 
  *
  */
 

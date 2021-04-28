@@ -32,6 +32,15 @@
 `include "lisnoc_def.vh"
 
 module lisnoc_router_output (/*AUTOARG*/
+
+/*
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+debug_op_fifo_ready, debug_op_oparb_ready,
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*/
+
    // Outputs
    link_flit, link_valid, switch_read,
    // Inputs
@@ -67,30 +76,48 @@ module lisnoc_router_output (/*AUTOARG*/
 
    genvar               v,p;
 
+/*
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+// Switch-Arbiter (o_ready) <-- (i_ready) Output-FIFO
+output debug_op_fifo_ready;
+// Output-FIFO (o_ready) <-- (i_ready) Output-Arbiter
+output [vchannels-1:0] debug_op_oparb_ready;
+assign debug_op_oparb_ready = ready;
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+*/
+
+
    for (v=0;v<vchannels;v=v+1) begin: vchannel
       wire [flit_width*ports-1:0] input_flits;
       wire [flit_width-1:0] arbiter_flit;
       wire arbiter_valid;
       wire fifo_ready;
+      
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+assign debug_op_fifo_ready = fifo_ready;
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
       for (p=0;p<ports;p=p+1) begin
          assign input_flits[(p+1)*flit_width-1:p*flit_width] = switch_flit[(p*vchannels+v+1)*flit_width-1:(p*vchannels+v)*flit_width];
       end
 
       if (use_prio == 0) begin
-        lisnoc_router_arbiter
-        #(.vchannels(vchannels), .ports(ports),.flit_data_width(flit_data_width),.flit_type_width(flit_type_width))
-        arbiter(// Outputs
-                            .read_o                     (switch_read[(v+1)*ports-1:v*ports]),
-                            .flit_o                     (arbiter_flit),
-                            .valid_o                    (arbiter_valid),
-                            // Inputs
-                            .clk                        (clk),
-                            .rst                        (rst),
-                            .flit_i                     (input_flits),
-                            .request_i          (switch_request[(v+1)*ports-1:v*ports]),
-                            .ready_i                    (fifo_ready));
-
+        lisnoc_switch_arbiter
+            #(.ports(ports),.flit_data_width(flit_data_width),.flit_type_width(flit_type_width))
+        arbiter(// FIFO Side, ouput
+                .flit_o                     (arbiter_flit),
+                .valid_o                    (arbiter_valid),
+                .ready_o                    (fifo_ready),   // input signal
+                // Switch Side, input
+                .clk                        (clk),
+                .rst                        (rst),
+                .flit_i                     (input_flits),
+                .request_i                  (switch_request[(v+1)*ports-1:v*ports]),
+                .read_i                     (switch_read[(v+1)*ports-1:v*ports]) // output signal
+        );
       end else if (use_prio == 1)begin
         lisnoc_router_arbiter_prio
         #(.vchannels(vchannels), .ports(ports),.flit_data_width(flit_data_width),.flit_type_width(flit_type_width),.ph_prio_width(ph_prio_width),
@@ -116,19 +143,20 @@ module lisnoc_router_output (/*AUTOARG*/
        .out_ready (ready[v]),
        );*/
 
-      lisnoc_fifo #(.LENGTH(fifo_length),.flit_data_width(flit_data_width),
-            .flit_type_width(flit_type_width))
-         fifo (/*AUTOINST*/
-               // Outputs
-               .in_ready                (fifo_ready),            // Templated
-               .out_flit                (flit[(v+1)*flit_width-1:v*flit_width]), // Templated
-               .out_valid               (valid[v]),              // Templated
-               // Inputs
-               .clk                     (clk),
-               .rst                     (rst),
-               .in_flit                 (arbiter_flit),          // Templated
-               .in_valid                (arbiter_valid),         // Templated
-               .out_ready               (ready[v]));             // Templated
+      lisnoc_fifo 
+        #(.LENGTH(fifo_length), .flit_data_width(flit_data_width), .flit_type_width(flit_type_width))
+      fifo (/*AUTOINST*/
+            // Output Arbiter Side, output       
+            .out_flit                (flit[(v+1)*flit_width-1:v*flit_width]),
+            .out_valid               (valid[v]),              
+            .out_ready               (ready[v]),            
+            // Switch Arbiter Side, input
+            .clk                     (clk),
+            .rst                     (rst),
+            .in_flit                 (arbiter_flit), 
+            .in_valid                (arbiter_valid),
+            .in_ready                (fifo_ready)
+      );
    end // block: vchannel
 
    /* lisnoc_router_output_arbiter AUTO_TEMPLATE (
@@ -141,17 +169,18 @@ module lisnoc_router_output (/*AUTOARG*/
     ); */
    lisnoc_output_arbiter
       #(.vchannels(vchannels),.flit_data_width(flit_data_width), .flit_type_width(flit_type_width))
-      output_arbiter(/*AUTOINST*/
-                     // Outputs
-                     .fifo_ready_o      (ready),                 // Templated
-                     .link_valid_o      (link_valid),            // Templated
-                     .link_flit_o       (link_flit),             // Templated
-                     // Inputs
-                     .clk               (clk),
-                     .rst               (rst),
-                     .fifo_valid_i      (valid),                 // Templated
-                     .fifo_flit_i       (flit),                  // Templated
-                     .link_ready_i      (link_ready));           // Templated
+   output_arbiter(/*AUTOINST*/
+                  // Link Side, output 
+                  .link_valid_o      (link_valid),
+                  .link_flit_o       (link_flit),
+                  .link_ready_i      (link_ready),
+                  // FIFO Side, input
+                  .clk               (clk),
+                  .rst               (rst),
+                  .fifo_valid_i      (valid),
+                  .fifo_flit_i       (flit),
+                  .fifo_ready_o      (ready)
+   );               
 
 endmodule // noc_router_output
 
