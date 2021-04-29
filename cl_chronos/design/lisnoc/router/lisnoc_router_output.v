@@ -33,13 +33,13 @@
 
 module lisnoc_router_output (/*AUTOARG*/
 
-/*
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 // Debug Area
 debug_op_fifo_ready, debug_op_oparb_ready,
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*/
+
 
    // Outputs
    link_flit, link_valid, switch_read,
@@ -76,7 +76,7 @@ debug_op_fifo_ready, debug_op_oparb_ready,
 
    genvar               v,p;
 
-/*
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 // Debug Area
 // Switch-Arbiter (o_ready) <-- (i_ready) Output-FIFO
@@ -86,7 +86,7 @@ output [vchannels-1:0] debug_op_oparb_ready;
 assign debug_op_oparb_ready = ready;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*/
+
 
 
    for (v=0;v<vchannels;v=v+1) begin: vchannel
@@ -94,11 +94,13 @@ assign debug_op_oparb_ready = ready;
       wire [flit_width-1:0] arbiter_flit;
       wire arbiter_valid;
       wire fifo_ready;
+
       
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 // Debug Area
 assign debug_op_fifo_ready = fifo_ready;
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
 
       for (p=0;p<ports;p=p+1) begin
          assign input_flits[(p+1)*flit_width-1:p*flit_width] = switch_flit[(p*vchannels+v+1)*flit_width-1:(p*vchannels+v)*flit_width];
