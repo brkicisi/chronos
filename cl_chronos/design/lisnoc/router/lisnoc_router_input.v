@@ -34,6 +34,14 @@
 `include "lisnoc_def.vh"
 
 module lisnoc_router_input( /*AUTOARG*/
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+debug_ip_fifo_flit,
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
    // Outputs
    link_ready, switch_request, switch_flit,
    // Inputs
@@ -85,8 +93,15 @@ module lisnoc_router_input( /*AUTOARG*/
    wire [flit_width-1:0]              switch_flit_array [0:vchannels-1];
    wire [ports-1:0]                   switch_read_array [0:vchannels-1];
 
-   genvar v;
 
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+output [flit_width-1:0] debug_ip_fifo_flit;
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+
+   genvar v;
    generate
       for (v=0;v<vchannels;v=v+1) begin: vchannel
          wire                   fifo_valid;
@@ -96,6 +111,14 @@ module lisnoc_router_input( /*AUTOARG*/
          assign switch_request[(v+1)*ports-1:v*ports] = switch_request_array[v];
          assign switch_flit[(v+1)*flit_width-1:v*flit_width] = switch_flit_array[v];
          assign switch_read_array[v] = switch_read[(v+1)*ports-1:v*ports];
+         
+         
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+// Debug Area
+assign debug_ip_fifo_flit = fifo_flit;
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *         
+
 
          /* lisnoc_fifo AUTO_TEMPLATE (
           .in_ready  (link_ready[v]),

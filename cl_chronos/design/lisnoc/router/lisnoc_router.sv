@@ -30,8 +30,11 @@
  *   <stevenway-s> at GitHub.
  *
  * Modified by <stevenway-s> at GitHub.
- *    Modifications : Add Synchronization for switch_in flits.
- *    To do : 1. Solve congestion condition.
+ *    Modifications : Added Synchronization for switch_in flits.
+ *                    Rewrote the file, while keeping the original I/O interfaces
+ *                    and basic structure. Now the Switching Structure is synchronous.
+ *    
+ *           To do : 1. Solve congestion condition.
  *               When multiple input flits are requesting the same output port,
  *               a congestion cnodition occurs. In this case, only one flit is
  *               selected (priority: input port [0] > [1] > [2] > [3] > [4]), and
@@ -176,10 +179,12 @@ debug_op_fifo_ready, debug_op_oparb_ready,
    // Those are the switching wires
    wire [FLIT_WIDTH*VCHANNELS-1:0]   switch_in_flit[0:INPUT_PORTS-1];
    wire [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_request[0:INPUT_PORTS-1];
-   wire [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_read[0:INPUT_PORTS-1];
+   wire [OUTPUT_PORTS*VCHANNELS-1:0] nxt_switch_in_read[0:INPUT_PORTS-1];
+   reg  [OUTPUT_PORTS*VCHANNELS-1:0] switch_in_read[0:INPUT_PORTS-1]; // register used for synchronization
 
    wire [FLIT_WIDTH*VCHANNELS*INPUT_PORTS-1:0] switch_out_flit[0:OUTPUT_PORTS-1];
-   wire [INPUT_PORTS*VCHANNELS-1:0]            switch_out_request[0:OUTPUT_PORTS-1];
+   wire [INPUT_PORTS*VCHANNELS-1:0]            nxt_switch_out_request[0:OUTPUT_PORTS-1];
+   reg  [INPUT_PORTS*VCHANNELS-1:0]            switch_out_request[0:OUTPUT_PORTS-1]; // register used for synchronization
    wire [INPUT_PORTS*VCHANNELS-1:0]            switch_out_read[0:OUTPUT_PORTS-1];
 
 
@@ -190,7 +195,7 @@ debug_op_fifo_ready, debug_op_oparb_ready,
     wire [FLIT_WIDTH*INPUT_PORTS*VCHANNELS-1:0] in_all_flits;
     reg  [FLIT_WIDTH*INPUT_PORTS*VCHANNELS-1:0] sync_all_flits;
     // Delay Check for synchronization
-    reg  sync_flag;   // single-bit boolean flag, checking if a synchronization is required
+    reg  [2:0] sync_flag;   // 3-bit boolean flag, (3 beats in total), checking if a synchronization is required
     wire [INPUT_PORTS*OUTPUT_PORTS*VCHANNELS-1:0] all_switch_in_request; 
     generate
         for (p = 0; p < INPUT_PORTS; p = p+1) begin : compose_all_switch_in_request
@@ -217,8 +222,8 @@ debug_op_fifo_ready, debug_op_oparb_ready,
       for (op = 0; op < OUTPUT_PORTS; op = op + 1) begin: connect_switch
          for (v = 0; v < VCHANNELS; v = v + 1) begin
             for (ip = 0; ip < INPUT_PORTS; ip = ip + 1) begin
-               assign switch_out_request[op][v*INPUT_PORTS+ip] = switch_in_request[ip][v*OUTPUT_PORTS+op];
-               assign switch_in_read[ip][v*OUTPUT_PORTS+op]    = switch_out_read[op][v*INPUT_PORTS+ip];
+               assign nxt_switch_out_request[op][v*INPUT_PORTS+ip] = switch_in_request[ip][v*OUTPUT_PORTS+op];
+               assign nxt_switch_in_read[ip][v*OUTPUT_PORTS+op]    = switch_out_read[op][v*INPUT_PORTS+ip];
             end
          end
       end
@@ -294,22 +299,31 @@ endgenerate
 // Working Area #2
 // Functional Design
    // Whenever the 'switch_in_request'signal from any Input Port is updated (to a different value), 
-   // there must be a one-CLK-cycle delay for synchronization
+   // there must be a 3-CLK-cycle delay for synchronization.
    always @(all_switch_in_request) begin 
-        sync_flag = 1;     // turn the sync_flag ON        
+        sync_flag = 3'b001;     // turn the sync_flag ON, delay 3 clk-cycles in total  
    end
    
    // Synchronous Update, with delay check
    always @(posedge clk) begin
-        //step_all_flits <= in_all_flits;     // wait one CLK-cycle for synchronization
-        //sync_all_flits <= step_all_flits;
-        if (rst)
-            sync_flag <= 0;
-        else if (sync_flag)  // sync_flag is ON, wait one clk cycle
-            sync_flag <= 0;
-        else                // sync_flag is OFF, update the switch_out flits
-            sync_all_flits <= in_all_flits; 
-            for (integer i=0; i<OUTPUT_PORTS; i=i+1)
+        if (rst) begin
+            sync_flag <= 3'b000;
+            for (integer i=0; i<OUTPUT_PORTS; i=i+1) // update o_valid
+                switch_out_request[i] <= 0;
+            for (integer i=0; i<INPUT_PORTS; i=i+1) // update i_ready
+                switch_in_read[i]     <= 0;
+        end
+        else begin
+            for (integer i=0; i<OUTPUT_PORTS; i=i+1) // update o_valid
+                switch_out_request[i] <= nxt_switch_out_request[i];
+            for (integer i=0; i<INPUT_PORTS; i=i+1) // update i_ready
+                switch_in_read[i]     <= nxt_switch_in_read[i];
+        // Delay
+            if (sync_flag)  // sync_flag is ON (NOT 0), wait one more clk cycle
+                sync_flag <= sync_flag << 1;
+            else            // sync_flag is OFF, update the switch_out flits
+                sync_all_flits <= in_all_flits; // update o_flit
+        end
    end
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *   
 
@@ -395,3 +409,4 @@ endgenerate
 endmodule // lisnoc_router
 
 `include "lisnoc_undef.vh"
+
